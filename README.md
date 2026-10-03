@@ -1,4 +1,4 @@
-# TGMRKT Python Client
+# MRKT Python Client
 
 An asynchronous Python library for the [MRKT](https://t.me/mrkt) API.
 `MrktClient` provides the main transport, while the API is organized into
