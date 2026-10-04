@@ -1,5 +1,7 @@
 '''Steam object of MRKT client'''
+
 from .cs2.client import CS2
+from webbrowser import open_new_tab
 
 class SteamClient:
     def __init__(self, client):
@@ -11,11 +13,10 @@ class SteamClient:
     async def connect(
         self, 
         *,
-        languageCode = "en",
-        redirectUri = "https://www.mrkt.land/steam-link?return=https%3A%2F%2Ft.me%2Fmrkt%2Fapp%3Fstartapp%3Dopensteamlinked",
-        open = False,
+        languageCode: str = "en",
+        redirectUri: str = "https://www.mrkt.land/steam-link?return=https%3A%2F%2Ft.me%2Fmrkt%2Fapp%3Fstartapp%3Dopensteamlinked",
+        open: bool = False,
     ):
-        from webbrowser import open_new_tab
         payload = {
             'redirectUri': redirectUri,
             'languageCode': languageCode
@@ -31,12 +32,25 @@ class SteamClient:
         response.raise_for_status()
         return await response.json()
     
-    @property
     async def connected(self) -> bool:
         user = await self._client.user.me()
-        return True if user.get("steamUser") else False
+        return bool(user.get("steamUser"))
 
-    @property
+    async def setTradeLink(self, tradeLink: str):
+        try:
+            payload = {
+                "tradeLink": tradeLink
+            }
+            response = await self._client.http.post('steam/trade-link', json=payload)
+            response.raise_for_status()
+            return True
+        except Exception as e: raise e
+    
     async def tradeLink(self) -> str:
         user = await self._client.user.me()
         return user.get("steamUser", {}).get("tradeLink", "")
+
+    async def getTradeLink(self, open: bool = False):
+        user = await self._client.user.me()
+        redirectTo = f"https://steamcommunity.com/profiles/{user.get('steamUser', {}).get('id')}/tradeoffers/privacy#trade_offer_access_url"
+        return redirectTo if not open else open_new_tab(redirectTo)
