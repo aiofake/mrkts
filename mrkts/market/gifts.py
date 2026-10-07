@@ -165,7 +165,7 @@ class Gifts:
         modelNames: list[str] | None = None,
         backdropNames: list[str] | None = None,
         number: int | None = None,
-        type: list[str] | None = None,          # "listing", "sale", "return", "unlisting", "change_price", "withdraw"
+        type: list[str] | None = None,          # "listing", "sale", "return", "unlisting", "changeprice", "withdraw"
         minPrice: int | None = None,
         maxPrice: int | None = None,
         ordering: str = "Latest",

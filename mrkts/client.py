@@ -29,6 +29,7 @@ class MrktClient:
         self.headers = headers or {}
         self._closed = False
         self.http: ClientSession | None = None
+        self.web = ClientSession | None = None
 
         for name in preload or []:
             self._preload(name)
@@ -120,7 +121,7 @@ class MrktClient:
                 "authorization": f"Bearer {token}",
                 "cookie": f"access_token={token}",
             })
-
+        
     def _preload(self, name: str) -> None:
         try:
             module_name, class_name = _preloads[name]
