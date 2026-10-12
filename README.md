@@ -5,6 +5,8 @@ An asynchronous Python library for the [MRKT](https://t.me/mrkt) API.
 separate Market, Steam, and User classes. These API classes can be used with
 the main client or directly with a custom HTTP transport.
 
+Full documentation: https://aiofake.github.io/mrkts/
+
 ## Features
 
 - Access token and Telegram session authentication
