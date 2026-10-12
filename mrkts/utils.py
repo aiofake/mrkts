@@ -58,18 +58,29 @@ async def get_tokens(
     if concurrency < 1:
         raise ValueError("concurrency must be greater than zero")
 
-    sem = asyncio.Semaphore(concurrency)
+    results: list[str | list[str] | None] = [None] * len(sessions)
+    next_index = 0
 
-    async def worker(session: str):
-        async with sem:
-            return await refresh_token(session, workdir=workdir, proxy=proxy)
+    async def worker() -> None:
+        nonlocal next_index
+        while next_index < len(sessions):
+            index = next_index
+            next_index += 1
+            try:
+                results[index] = await refresh_token(
+                    sessions[index],
+                    workdir=workdir,
+                    proxy=proxy,
+                )
+            except Exception as exc:
+                print(f"[!] Session {sessions[index]} failed: {exc}")
 
-    results = await asyncio.gather(*(worker(s) for s in sessions), return_exceptions=True)
+    await asyncio.gather(
+        *(worker() for _ in range(min(concurrency, len(sessions))))
+    )
 
-    tokens = []
-    for res in results:
-        if isinstance(res, Exception):
-            print(f"[!] Session {res} failed: {res}")
-        else:
-            tokens.extend(res if isinstance(res, list) else [res])
+    tokens: list[str] = []
+    for result in results:
+        if result is not None:
+            tokens.extend(result if isinstance(result, list) else [result])
     return tokens

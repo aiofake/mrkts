@@ -189,8 +189,10 @@ async def main() -> None:
 
 ## Multiple Accounts
 
-`MrktPool` runs one coroutine for each client in the pool. Open each client
-with `async with` inside the callback:
+`MrktPool` uses a bounded set of reusable worker clients instead of creating
+one task and one client for every account. It lazily creates at most
+`concurrency` HTTP sessions and reuses them across accounts and `map()` calls
+while the pool context is open. Specify `preload` for API modules you need:
 
 ```python
 import asyncio
@@ -200,14 +202,16 @@ from mrkts import MrktPool
 
 async def get_balance(client) -> dict:
     async with client as api:
-        response = await api.http.get("balance")
-        response.raise_for_status()
-        return await response.json()
+        return await api.user.balance()
 
 
 async def main() -> None:
-    async with MrktPool(tokens=["TOKEN_1", "TOKEN_2"]) as pool:
-        results = await pool.map(get_balance, concurrency=2)
+    async with MrktPool(
+        tokens=["TOKEN_1", "TOKEN_2"],
+        preload=("user",),
+        concurrency=2,
+    ) as pool:
+        results = await pool.map(get_balance)
         for result in results:
             if isinstance(result, Exception):
                 print(f"Request failed: {result}")
@@ -218,8 +222,22 @@ async def main() -> None:
 asyncio.run(main())
 ```
 
-To create a pool from Telegram sessions, use
-`await MrktPool.from_sessions(...)`.
+Pool workers are owned by the pool, so exiting `async with client` inside the
+callback does not close the reusable worker. The pool closes its HTTP sessions
+when its own context exits. Calls to `map()` within the pool context reuse
+existing workers; a call made outside a context manager starts and closes
+workers automatically. To use Telegram sessions, call
+`await MrktPool.from_sessions(..., preload=("user",))`.
+
+`map()` preserves input order and returns exceptions as individual results.
+The result list uses memory proportional to the number of accounts, while the
+number of concurrent tasks and HTTP sessions is bounded by `concurrency`.
+`unlimited=True` opts out of this memory bound and creates one worker per
+account; use it only when the account count is small.
+
+Each worker is reassigned to another account after its callback completes.
+Await all requests inside the callback; do not retain the worker client or
+start background requests that outlive the callback.
 
 ## API Structure
 

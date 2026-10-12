@@ -21,6 +21,11 @@ class User:
         response.raise_for_status()
         return await response.json()
 
+    async def activities(self, *, count: int = 20, filters: list = ["Offers", "ChannelOffers", "GiftsCollectionOffers"]):
+            response = await self._client.http.get("activities/with-totals", params={"count": count, "isActive": "true", "filters": filters})
+            response.raise_for_status()
+            return await response.json()
+    
     async def transactions(self):
         response = await self._client.http.get("transactions/await")
         response.raise_for_status()
@@ -37,10 +42,14 @@ class User:
         return await response.json()
 
     async def tasks(self):
-        response = await self._client.http.get("tasks/new")
+        response = await self._client.http.get("tasks")
         response.raise_for_status()
         return await response.json()
 
+    async def new_tasks(self):
+        response = await self._client.http.get("tasks/new")
+        response.raise_for_status()
+        return await response.json()
     
     '''Experimental method to autoWithdraw'''
     async def autoWithdraw(self, nanoTONs: int = None):
