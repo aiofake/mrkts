@@ -20,9 +20,18 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+        with:
+          token: ${{ secrets.GH_PAGES_TOKEN || github.token }}
+          enablement: ${{ secrets.GH_PAGES_TOKEN != '' }}
 
       - name: Set up Python
         uses: actions/setup-python@v5
