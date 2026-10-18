@@ -51,13 +51,27 @@ class User:
         response.raise_for_status()
         return await response.json()
     
-    '''Experimental method to autoWithdraw'''
-    async def autoWithdraw(self, nanoTONs: int = None):
-        if not nanoTONs:
+    async def autoWithdraw(self, nanoTONs: int | None = None):
+        """Withdraw the available balance to the account's saved TON wallet."""
+        if nanoTONs is None:
             balance = await self.balance()
-            nanoTONs = balance.get("balance").get("hard")
+            balance_data = (
+                balance.get("balance") if isinstance(balance, dict) else None
+            )
+            nanoTONs = (
+                balance_data.get("hard")
+                if isinstance(balance_data, dict)
+                else None
+            )
+            if nanoTONs is None:
+                raise ValueError(
+                    "Account response does not contain a withdrawable balance"
+                )
 
-        wallet = await self.me().get("wallet").get("ton")
-        response = await self._client.http.post("wallet/withdraw/tons", json={"nanoTONs": nanoTONs, "wallet": wallet})
-        response.raise_for_status()
-        return await response.json()
+        profile = await self.me()
+        wallet_data = profile.get("wallet") if isinstance(profile, dict) else None
+        wallet = wallet_data.get("ton") if isinstance(wallet_data, dict) else None
+        if not wallet:
+            raise ValueError("Account response does not contain a saved TON wallet")
+
+        return await self.withdraw(nanoTONs, wallet)

@@ -47,3 +47,7 @@ result = await client.user.withdraw(
 
 Amounts are passed in nanoTONs. Never embed real credentials or wallet
 addresses in public examples or commit history.
+
+`autoWithdraw()` is an experimental account-changing operation. It reads the
+available balance and saved TON wallet from the account before submitting a
+withdrawal. Verify both values before using it with a real account.

@@ -2,8 +2,12 @@
 
 from importlib import import_module
 import random
+from collections.abc import Callable
 from aiohttp import ClientSession
+from typing import Any, TypeVar
 from .auth import get_token, refresh_token
+
+_Result = TypeVar("_Result")
 
 _preloads = {
     "market": (".market.client", "MarketClient"),
@@ -26,7 +30,7 @@ class MrktClient:
         self._session = session
         self.workdir = workdir
         self.proxy = proxy
-        self.headers = headers or {}
+        self.headers = headers if headers is not None else {}
         self._closed = False
         self.http: ClientSession | None = None
         self.web: ClientSession | None = None
@@ -57,7 +61,11 @@ class MrktClient:
         if self.token:
             headers["authorization"] = f"Bearer {self.token}"
             headers["cookie"] = f"access_token={self.token}"
-        self.headers.update(headers)
+        headers.update(self.headers)
+        if self.token:
+            headers["authorization"] = "******"
+            headers["cookie"] = f"access_token={self.token}"
+        self.headers = headers
 
         self.http = ClientSession(
             base_url="https://api.tgmrkt.io/api/v1/",
@@ -67,20 +75,20 @@ class MrktClient:
         self._closed = False
 
     async def auth(self, tgWebAppData: str) -> str:
-        if not self.http:
+        if self.http is None or self.http.closed:
             self._setup_http()
         response = await self.http.post("auth", json={"data": tgWebAppData})
         response.raise_for_status()
-        data = response.json()
-        token = data.get("token")
+        data = await response.json()
+        token = data.get("token") if isinstance(data, dict) else None
         if not token:
-            raise ValueError(f"Auth failed: {data}")
+            raise ValueError("Auth response did not contain a token")
         return token
 
     async def start(self) -> "MrktClient":
         if not self.token and self._session:
             self.token = await refresh_token(session=self._session, workdir=self.workdir, proxy=self.proxy)
-        if not self.http and self.token:
+        if self.token and (self.http is None or self.http.closed):
             self._setup_http()
         return self
 
@@ -103,24 +111,32 @@ class MrktClient:
         *,
         workdir: str = ".",
         proxy: str | None = None,
-        impersonate: str = "chrome124",
         **kwargs,
     ) -> "MrktClient":
         token = await get_token(init_data, proxy=proxy)
-        return cls(token=token, workdir=workdir, proxy=proxy, impersonate=impersonate, **kwargs)
+        return cls(token=token, workdir=workdir, proxy=proxy, **kwargs)
 
     def set_token(self, token: str) -> None:
         self.token = token
         self.headers["authorization"] = f"Bearer {token}"
         self.headers["cookie"] = f"access_token={token}"
 
-        if self.http is None:
+        if self.http is None or self.http.closed:
             self._setup_http()
         else:
             self.http.headers.update({
                 "authorization": f"Bearer {token}",
                 "cookie": f"access_token={token}",
             })
+
+    def exec(
+        self,
+        workflow: Callable[..., _Result],
+        *args: Any,
+        **kwargs: Any,
+    ) -> _Result:
+        """Call a standalone workflow with this client as its first argument."""
+        return workflow(self, *args, **kwargs)
 
     def _preload(self, name: str) -> None:
         try:
@@ -140,6 +156,6 @@ class MrktClient:
         await self.close()
 
     async def close(self):
-        if not self._closed and self.http:
+        if self.http is not None and not self.http.closed:
             await self.http.close()
-            self._closed = True
+        self._closed = True

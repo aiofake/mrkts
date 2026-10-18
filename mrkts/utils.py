@@ -41,11 +41,12 @@ async def get_init_data(
     ) as cli:
         bot = await cli.resolve_peer(username)
         url = await cli.get_main_web_app(bot.user_id, bot.user_id)
-        query = url.split("tgWebAppData=")[1].split("tgWebAppVersion")[0]
-        try:
-            return query
-        except (KeyError, IndexError) as exc:
-            raise ValueError("Telegram WebApp URL does not contain tgWebAppData") from exc
+        init_data = urllib.parse.parse_qs(
+            urllib.parse.urlsplit(url).query
+        ).get("tgWebAppData")
+        if not init_data or not init_data[0]:
+            raise ValueError("Telegram WebApp URL does not contain tgWebAppData")
+        return init_data[0]
 
 
 async def get_tokens(
@@ -58,7 +59,7 @@ async def get_tokens(
     if concurrency < 1:
         raise ValueError("concurrency must be greater than zero")
 
-    results: list[str | list[str] | None] = [None] * len(sessions)
+    results: list[str | None] = [None] * len(sessions)
     next_index = 0
 
     async def worker() -> None:
@@ -73,14 +74,16 @@ async def get_tokens(
                     proxy=proxy,
                 )
             except Exception as exc:
-                print(f"[!] Session {sessions[index]} failed: {exc}")
+                raise RuntimeError(
+                    f"Failed to refresh Telegram session at index {index}"
+                ) from exc
 
-    await asyncio.gather(
-        *(worker() for _ in range(min(concurrency, len(sessions))))
+    worker_results = await asyncio.gather(
+        *(worker() for _ in range(min(concurrency, len(sessions)))),
+        return_exceptions=True,
     )
+    for result in worker_results:
+        if isinstance(result, BaseException):
+            raise result
 
-    tokens: list[str] = []
-    for result in results:
-        if result is not None:
-            tokens.extend(result if isinstance(result, list) else [result])
-    return tokens
+    return [result for result in results if result is not None]
