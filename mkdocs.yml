@@ -51,6 +51,7 @@ nav:
   - Guides:
       - Multi-account pool: guides/pool.md
       - Raw requests and standalone classes: guides/raw-and-standalone.md
+      - Reusable workflows: guides/workflows.md
   - API reference:
       - Market:
           - Gifts: api/gifts.md

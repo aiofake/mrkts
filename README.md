@@ -137,7 +137,7 @@ async with MrktClient(
     preload=("steam", "user"),
 ) as client:
     steam_link = await client.steam.connect()
-    is_connected = await client.steam.connected
+    is_connected = await client.steam.connected()
     # Use client.steam.cs2.skins to query the CS2 catalog.
 ```
 
@@ -240,6 +240,33 @@ account; use it only when the account count is small.
 Each worker is reassigned to another account after its callback completes.
 Await all requests inside the callback; do not retain the worker client or
 start background requests that outlive the callback.
+
+## Reusable Workflows
+
+Workflows are plain functions that receive a client. Run an awaitable or an
+async iterator through `client.exec()`:
+
+```python
+from mrkts import MrktClient
+from mrkts.workflows import fetch_feed
+
+
+async with MrktClient(
+    token="YOUR_ACCESS_TOKEN",
+    preload=("market",),
+) as client:
+    async for snapshot in client.exec(
+        fetch_feed,
+        interval=2.0,
+        collectionNames=["Plush Pepe"],
+        count=20,
+    ):
+        print(snapshot)
+```
+
+`fetch_feed()` polls immediately, then waits between requests. It yields
+responses unchanged and propagates request errors. Close the iterator when
+finished; the client context owns and closes the HTTP session.
 
 ## API Structure
 
